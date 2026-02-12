@@ -4,7 +4,6 @@ import logging
 from typing import Optional
 import google.generativeai as genai
 from groq import Groq
-from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 from app.config import get_settings
 
@@ -48,18 +47,6 @@ class LLMService:
             except Exception as e:
                 logger.warning(f"⚠️ Groq non disponible : {e}")
         
-        # 3. Mistral AI - Gratuit avec limitations
-        if settings.mistral_api_key:
-            try:
-                client = MistralClient(api_key=settings.mistral_api_key)
-                self.providers.append({
-                    'name': 'mistral',
-                    'client': client,
-                    'method': self._generate_mistral
-                })
-                logger.info("✅ Mistral initialisé")
-            except Exception as e:
-                logger.warning(f"⚠️ Mistral non disponible : {e}")
         
         if not self.providers:
             raise ValueError("❌ Aucun provider LLM configuré ! Ajoutez au moins une clé API.")
@@ -72,18 +59,8 @@ class LLMService:
     def _generate_groq(self, client, prompt: str) -> str:
         """Génère avec Groq."""
         response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=1000
-        )
-        return response.choices[0].message.content
-    
-    def _generate_mistral(self, client, prompt: str) -> str:
-        """Génère avec Mistral."""
-        response = client.chat(
-            model="mistral-small-latest",
-            messages=[ChatMessage(role="user", content=prompt)],
             temperature=0.7,
             max_tokens=1000
         )

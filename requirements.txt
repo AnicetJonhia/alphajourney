@@ -9,7 +9,7 @@ pydantic-settings==2.1.0
 # LLMs gratuits
 google-generativeai==0.3.2
 groq==0.4.2
-mistralai==0.1.3
+
 
 # Utils
 requests==2.31.0
