@@ -28,7 +28,7 @@ class LLMService:
                 genai.configure(api_key=settings.gemini_api_key)
                 self.providers.append({
                     'name': 'gemini',
-                    'client': genai.GenerativeModel('gemini-pro'),
+                    'client': genai.GenerativeModel('gemini-3-flash-preview'),
                     'method': self._generate_gemini
                 })
                 logger.info("✅ Gemini initialisé")
