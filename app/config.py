@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     mistral_api_key: str | None = None
     
     # Scheduler
-    publication_hour: int = 14
+    publication_hour: int = 19
     publication_minute: int = 0
     
     # App
