@@ -1,12 +1,14 @@
 """Planificateur de tâches automatiques."""
 
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import SessionLocal
 from app.services.content_service import ContentService
 from app.services.facebook_service import get_facebook_service
 from app.config import get_settings
+from app.models import Post
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -31,10 +33,11 @@ def daily_publication_job():
         topic = content_service.get_unused_topic(category)
         
         # 3. Générer contenu avec LLM
-        content, llm_used = content_service.generate_post_content(category, topic)
+        # generate_post_content is async => run in asyncio loop
+        content, llm_used = asyncio.run(content_service.generate_post_content(category, topic))
         
         # 4. Publier sur Facebook
-        fb_post_id = fb_service.publish(content)
+        fb_post_id = asyncio.run(fb_service.publish(content))
         
         # 5. Sauvegarder en base
         post = content_service.save_post(
@@ -77,7 +80,7 @@ def fetch_analytics_job():
         
         for post in posts:
             try:
-                stats = fb_service.get_post_insights(post.fb_post_id)
+                stats = asyncio.run(fb_service.get_post_insights(post.fb_post_id))
                 content_service.update_post_analytics(post.id, stats)
             except Exception as e:
                 logger.error(f"❌ Erreur stats post {post.id} : {e}")

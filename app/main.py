@@ -1,6 +1,7 @@
 """Point d'entrée de l'application FastAPI."""
 
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
@@ -65,10 +66,10 @@ def health_check():
 
 
 @app.post("/publish-now")
-def publish_now():
+async def publish_now():
     """Déclenche une publication immédiate (pour tests)."""
     try:
-        daily_publication_job()
+        await asyncio.to_thread(daily_publication_job)
         return {"status": "success", "message": "Publication déclenchée"}
     except Exception as e:
         logger.error(f"Erreur publication manuelle : {e}")

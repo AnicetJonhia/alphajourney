@@ -61,7 +61,7 @@ class ContentService:
         
         return selected
     
-    def generate_post_content(self, category: str, topic: str) -> tuple[str, str]:
+    async def generate_post_content(self, category: str, topic: str) -> tuple[str, str]:
         """
         Génère le contenu d'un post.
         
@@ -75,8 +75,8 @@ class ContentService:
         prompt = get_prompt(category, topic)
         
         logger.info(f"🤖 Génération contenu pour : {topic}")
-        content, llm_name = self.llm_service.generate(prompt)
-        
+        content, llm_name = await self.llm_service.generate(prompt)
+
         return content, llm_name
     
     def save_post(
