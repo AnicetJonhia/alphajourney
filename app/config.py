@@ -1,11 +1,11 @@
-"""Configuration centralisée de l'application."""
+"""Configuration centralisée."""
 
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    """Paramètres de l'application chargés depuis .env"""
+    """Paramètres de l'application."""
     
     # Database
     database_url: str
@@ -14,13 +14,16 @@ class Settings(BaseSettings):
     fb_access_token: str
     fb_page_id: str
     
-    # LLM APIs (optionnels, au moins 1 requis)
-    gemini_api_key: str | None = None
+    # LLM APIs
     groq_api_key: str | None = None
-    mistral_api_key: str | None = None
+    gemini_api_key: str | None = None
+    
+    # Image APIs (optionnels)
+    unsplash_access_key: str | None = None
+    pexels_api_key: str | None = None
     
     # Scheduler
-    publication_hour: int = 19
+    publication_hour: int = 14
     publication_minute: int = 0
     
     # App
