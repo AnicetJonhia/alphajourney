@@ -48,28 +48,31 @@ async def daily_publication_job():
             timeout=30.0
         )
         
-        # 6. AUTO-ENGAGEMENT (NOUVEAU)
-        logger.info("🎯 Démarrage auto-engagement...")
-        
-        # Attendre 5 secondes (laisser le post s'afficher)
-        await asyncio.sleep(5)
-        
-        # 6a. LIKE automatique
-        like_success = await fb_service.like_post(fb_post_id, timeout=10.0)
-        
-        if like_success:
-            logger.info("👍 Post liké automatiquement")
-        
-        # 6b. COMMENTAIRE automatique
-        first_comment = get_first_comment(category)
-        comment_id = await fb_service.comment_post(
-            fb_post_id,
-            first_comment,
-            timeout=10.0
-        )
-        
-        if comment_id:
-            logger.info(f"💬 Premier commentaire publié : {comment_id}")
+        # Dans daily_publication_job(), remplacer la section 6 par :
+
+        # 6. AUTO-ENGAGEMENT (configurable)
+        if settings.auto_like or settings.auto_comment:
+            logger.info("🎯 Démarrage auto-engagement...")
+            
+            # Attendre le délai configuré
+            await asyncio.sleep(settings.engagement_delay)
+            
+            # Like si activé
+            if settings.auto_like:
+                like_success = await fb_service.like_post(fb_post_id, timeout=10.0)
+                if like_success:
+                    logger.info("👍 Post liké automatiquement")
+            
+            # Commentaire si activé
+            if settings.auto_comment:
+                first_comment = get_first_comment(category)
+                comment_id = await fb_service.comment_post(
+                    fb_post_id,
+                    first_comment,
+                    timeout=10.0
+                )
+                if comment_id:
+                    logger.info(f"💬 Premier commentaire publié : {comment_id}")
         
         # 7. Sauvegarder
         post = content_service.save_post(

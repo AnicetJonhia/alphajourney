@@ -17,7 +17,7 @@ async def test_full_post():
         fb_service = get_facebook_service()
         
         category = "finance"
-        topic = "Le trading de crypto-monnaies : opportunités et risques"
+        topic = "Les tendances financières à suivre en 2026"
         
         print(f"📝 Génération post : {topic}\n")
         
