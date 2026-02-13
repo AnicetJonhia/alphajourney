@@ -13,7 +13,7 @@ google-generativeai==0.3.2
 groq==0.11.0
 
 # HTTP ASYNC
-httpx==0.27.0
+httpx==0.25.2
 
 # Utils
 requests==2.31.0
