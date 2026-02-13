@@ -4,49 +4,49 @@ services:
     env: python
     region: oregon
     plan: free
-    pythonVersion: 3.12.7
+
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    
+
     envVars:
-  
-      
-      # Database
+      - key: PYTHON_VERSION
+        value: 3.12.2
+
       - key: DATABASE_URL
-        sync: false  # Secret - à configurer dans le dashboard (ex: postgresql://user:pass@ep-xxx.neon.tech/db)
-      
-      # Facebook
+        sync: false
+
       - key: FB_ACCESS_TOKEN
-        sync: false  # Secret - à configurer dans le dashboard
+        sync: false
+
       - key: FB_PAGE_ID
-        sync: false  # Secret - à configurer dans le dashboard
-      
-      # LLM APIs (au moins 1 requis)
+        sync: false
+
       - key: GROQ_API_KEY
-        sync: false  # PRIORITÉ #1 - Recommandé
+        sync: false
+
       - key: GEMINI_API_KEY
-        sync: false  # Backup
-      
-      # Image APIs (optionnels mais recommandés)
+        sync: false
+
       - key: UNSPLASH_ACCESS_KEY
-        sync: false  # Pour photos gratuites - RECOMMANDÉ
+        sync: false
+
       - key: PEXELS_API_KEY
-        sync: false  # Backup images
-      
-      # Auto-engagement (optionnel)
+        sync: false
+
       - key: AUTO_LIKE
-        value: true  # Active le like automatique
+        value: "true"
+
       - key: AUTO_COMMENT
-        value: true  # Active le commentaire automatique
+        value: "true"
+
       - key: ENGAGEMENT_DELAY
-        value: 5     # Délai avant engagement (secondes)
-      
-      # Configuration publication
+        value: "5"
+
       - key: PUBLICATION_HOUR
-        value: 14  # Heure de publication (format 24h)
+        value: "19"
+
       - key: PUBLICATION_MINUTE
-        value: 0   # Minute de publication
-      
-      # Environnement
+        value: "0"
+
       - key: ENVIRONMENT
         value: production
