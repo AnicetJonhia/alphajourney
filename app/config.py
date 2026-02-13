@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     unsplash_access_key: str | None = None
     pexels_api_key: str | None = None
     
+    # Auto-engagement (optionnel)
+    auto_like: bool = True          
+    auto_comment: bool = True       
+    engagement_delay: int = 5       # ← Délai en secondes
+    
     # Scheduler
     publication_hour: int = 14
     publication_minute: int = 0
