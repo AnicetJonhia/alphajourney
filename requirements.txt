@@ -1,15 +1,19 @@
-fastapi[standard]
+fastapi==0.109.2
 uvicorn[standard]==0.27.1
 sqlalchemy==2.0.27
 psycopg2-binary==2.9.9
-apscheduler==3.10.4
 python-dotenv==1.0.1
 pydantic-settings==2.1.0
 
-# LLMs gratuits
-google-generativeai==0.3.2
-groq==0.4.2
+# Scheduler ASYNC
+apscheduler==3.10.4
 
+# LLMs ASYNC
+google-generativeai==0.3.2
+groq==0.11.0
+
+# HTTP ASYNC
+httpx==0.27.0
 
 # Utils
 requests==2.31.0
