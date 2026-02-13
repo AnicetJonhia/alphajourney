@@ -1,107 +1,125 @@
-"""Planificateur de tâches automatiques."""
+"""Planificateur avec hashtags et images."""
 
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.database import SessionLocal
 from app.services.content_service import ContentService
 from app.services.facebook_service import get_facebook_service
 from app.config import get_settings
-from app.models import Post
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def daily_publication_job():
-    """Job de publication quotidienne."""
-    logger.info("🚀 Démarrage du job de publication quotidienne")
+async def daily_publication_job():
+    """Job de publication quotidienne avec hashtags et image."""
+    logger.info("🚀 Démarrage du job de publication")
     
     db = SessionLocal()
     
     try:
-        # Services
         content_service = ContentService(db)
         fb_service = get_facebook_service()
         
-        # 1. Déterminer catégorie du jour
+        # 1. Catégorie du jour
         category = content_service.get_today_category()
-        logger.info(f"📅 Catégorie du jour : {category}")
+        logger.info(f"📅 Catégorie : {category}")
         
-        # 2. Sélectionner sujet non répété
+        # 2. Sujet
         topic = content_service.get_unused_topic(category)
         
-        # 3. Générer contenu avec LLM
-        # generate_post_content is async => run in asyncio loop
-        content, llm_used = asyncio.run(content_service.generate_post_content(category, topic))
+        # 3. Générer contenu + hashtags
+        content, llm_used = await content_service.generate_post_content(
+            category, topic, timeout=60.0
+        )
         
-        # 4. Publier sur Facebook
-        fb_post_id = asyncio.run(fb_service.publish(content))
+        # 4. Récupérer image
+        image_url = await content_service.get_post_image(
+            category, timeout=15.0
+        )
         
-        # 5. Sauvegarder en base
+        # 5. Publier sur Facebook avec image
+        fb_post_id = await fb_service.publish(
+            content=content,
+            image_url=image_url,
+            timeout=30.0
+        )
+        
+        # 6. Sauvegarder
         post = content_service.save_post(
             category=category,
             topic=topic,
             content=content,
             fb_post_id=fb_post_id,
-            llm_used=llm_used
+            llm_used=llm_used,
+            image_url=image_url
         )
         
-        logger.info(f"✅ Publication réussie ! Post ID: {post.id}, FB ID: {fb_post_id}")
+        logger.info(
+            f"✅ Publication réussie ! "
+            f"Post ID: {post.id}, FB: {fb_post_id}, "
+            f"LLM: {llm_used}, Image: {'✅' if image_url else '❌'}"
+        )
         
     except Exception as e:
-        logger.error(f"❌ Erreur lors de la publication : {e}", exc_info=True)
+        logger.error(f"❌ Erreur : {e}", exc_info=True)
         
     finally:
         db.close()
 
 
-def fetch_analytics_job():
-    """Récupère les analytics des posts publiés il y a 24h."""
-    logger.info("📊 Récupération des analytics")
+async def fetch_analytics_job():
+    """Récupère les analytics."""
+    logger.info("📊 Récupération analytics")
     
     db = SessionLocal()
     
     try:
-        # Posts publiés il y a ~24h
+        from app.models import Post
+        
         yesterday = datetime.utcnow() - timedelta(days=1)
-        start_window = yesterday - timedelta(hours=1)
-        end_window = yesterday + timedelta(hours=1)
+        start = yesterday - timedelta(hours=1)
+        end = yesterday + timedelta(hours=1)
         
         posts = db.query(Post).filter(
-            Post.published_at >= start_window,
-            Post.published_at <= end_window,
+            Post.published_at >= start,
+            Post.published_at <= end,
             Post.fb_post_id.isnot(None)
         ).all()
         
         fb_service = get_facebook_service()
         content_service = ContentService(db)
         
-        for post in posts:
-            try:
-                stats = asyncio.run(fb_service.get_post_insights(post.fb_post_id))
-                content_service.update_post_analytics(post.id, stats)
-            except Exception as e:
-                logger.error(f"❌ Erreur stats post {post.id} : {e}")
+        tasks = [
+            fb_service.get_post_insights(p.fb_post_id, timeout=30.0)
+            for p in posts
+        ]
         
-        logger.info(f"✅ Analytics récupérés pour {len(posts)} posts")
+        stats_list = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for post, stats in zip(posts, stats_list):
+            if isinstance(stats, Exception):
+                logger.error(f"❌ Stats post {post.id} : {stats}")
+            else:
+                content_service.update_post_analytics(post.id, stats)
+        
+        logger.info(f"✅ Analytics pour {len(posts)} posts")
         
     except Exception as e:
-        logger.error(f"❌ Erreur récupération analytics : {e}")
+        logger.error(f"❌ Erreur analytics : {e}")
         
     finally:
         db.close()
 
 
-# Scheduler global
-scheduler = BackgroundScheduler()
+scheduler = AsyncIOScheduler()
 
 
 def start_scheduler():
-    """Démarre le planificateur de tâches."""
+    """Démarre le planificateur."""
     
-    # Job 1 : Publication quotidienne
     scheduler.add_job(
         daily_publication_job,
         trigger='cron',
@@ -111,7 +129,6 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # Job 2 : Récupération analytics (18h chaque jour)
     scheduler.add_job(
         fetch_analytics_job,
         trigger='cron',
@@ -122,8 +139,7 @@ def start_scheduler():
     )
     
     scheduler.start()
-    logger.info("⏰ Scheduler démarré")
-    logger.info(f"📅 Publication programmée à {settings.publication_hour}h{settings.publication_minute:02d}")
+    logger.info("⏰ Scheduler démarré (Hashtags + Images activés)")
 
 
 def stop_scheduler():
