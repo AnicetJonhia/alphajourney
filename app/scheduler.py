@@ -1,4 +1,4 @@
-"""Planificateur avec hashtags et images."""
+"""Planificateur avec auto-engagement (like + comment)."""
 
 import logging
 import asyncio
@@ -7,6 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.database import SessionLocal
 from app.services.content_service import ContentService
 from app.services.facebook_service import get_facebook_service
+from app.data.comments import get_first_comment
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ settings = get_settings()
 
 
 async def daily_publication_job():
-    """Job de publication quotidienne avec hashtags et image."""
+    """Job de publication quotidienne avec auto-engagement."""
     logger.info("🚀 Démarrage du job de publication")
     
     db = SessionLocal()
@@ -40,14 +41,37 @@ async def daily_publication_job():
             category, timeout=15.0
         )
         
-        # 5. Publier sur Facebook avec image
+        # 5. Publier sur Facebook
         fb_post_id = await fb_service.publish(
             content=content,
             image_url=image_url,
             timeout=30.0
         )
         
-        # 6. Sauvegarder
+        # 6. AUTO-ENGAGEMENT (NOUVEAU)
+        logger.info("🎯 Démarrage auto-engagement...")
+        
+        # Attendre 5 secondes (laisser le post s'afficher)
+        await asyncio.sleep(5)
+        
+        # 6a. LIKE automatique
+        like_success = await fb_service.like_post(fb_post_id, timeout=10.0)
+        
+        if like_success:
+            logger.info("👍 Post liké automatiquement")
+        
+        # 6b. COMMENTAIRE automatique
+        first_comment = get_first_comment(category)
+        comment_id = await fb_service.comment_post(
+            fb_post_id,
+            first_comment,
+            timeout=10.0
+        )
+        
+        if comment_id:
+            logger.info(f"💬 Premier commentaire publié : {comment_id}")
+        
+        # 7. Sauvegarder
         post = content_service.save_post(
             category=category,
             topic=topic,
@@ -58,9 +82,11 @@ async def daily_publication_job():
         )
         
         logger.info(
-            f"✅ Publication réussie ! "
+            f"✅ Publication complète ! "
             f"Post ID: {post.id}, FB: {fb_post_id}, "
-            f"LLM: {llm_used}, Image: {'✅' if image_url else '❌'}"
+            f"LLM: {llm_used}, Image: {'✅' if image_url else '❌'}, "
+            f"Like: {'✅' if like_success else '❌'}, "
+            f"Comment: {'✅' if comment_id else '❌'}"
         )
         
     except Exception as e:
@@ -139,7 +165,7 @@ def start_scheduler():
     )
     
     scheduler.start()
-    logger.info("⏰ Scheduler démarré (Hashtags + Images activés)")
+    logger.info("⏰ Scheduler démarré (Auto-engagement activé)")
 
 
 def stop_scheduler():
