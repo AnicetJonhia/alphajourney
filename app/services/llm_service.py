@@ -79,9 +79,12 @@ class LLMService:
         except Exception:
             return str(response)
 
-    async def generate(self, prompt: str) -> tuple[str, str]:
+    async def generate(self, prompt: str, timeout: float | None = None) -> tuple[str, str]:
         """
         Génère du contenu avec fallback automatique (async).
+
+        If `timeout` is provided, it will be applied to each provider call using
+        `asyncio.wait_for` so a slow provider doesn't block the fallback loop.
 
         Returns:
             tuple: (contenu généré, nom du provider utilisé)
@@ -90,11 +93,19 @@ class LLMService:
             try:
                 logger.info(f"🔄 Tentative avec {provider['name']}...")
 
-                content = await provider['method'](provider['client'], prompt)
+                if timeout is not None:
+                    content = await asyncio.wait_for(
+                        provider['method'](provider['client'], prompt), timeout=timeout
+                    )
+                else:
+                    content = await provider['method'](provider['client'], prompt)
 
                 logger.info(f"✅ Contenu généré avec {provider['name']}")
                 return content, provider['name']
 
+            except asyncio.TimeoutError:
+                logger.error(f"⏱️ Timeout with {provider['name']} after {timeout}s")
+                continue
             except Exception as e:
                 logger.error(f"❌ Erreur avec {provider['name']} : {e}")
                 continue

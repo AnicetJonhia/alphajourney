@@ -587,7 +587,27 @@ MIT License - Voir [LICENSE](LICENSE)
 ## 🎨 Screenshots
 
 ### Post généré automatiquement
+```
+💰 Épargner 500€/mois sans effort ? C'est possible !
 
+Le problème : Chaque mois, tu te dis "je vais mettre 
+de l'argent de côté"... mais en fin de mois, il ne 
+reste rien. 😔
+
+La solution ? L'épargne AUTOMATIQUE :
+
+1️⃣ Ouvre un compte épargne séparé
+2️⃣ Programme un virement automatique le jour de ta paie
+3️⃣ Commence petit (100€) puis augmente
+4️⃣ Considère cet argent comme "déjà dépensé"
+5️⃣ Ajuste ton budget sur ce qui reste
+
+Résultat : En 1 an = 6 000€ épargnés ! 🎯
+
+Et toi, quelle est ta méthode d'épargne ? 💬
+
+#FinancePersonnelle #Épargne #BudgetFamilial 
+#LibertéFinancière #GestionBudget
 ```
 
 **+ Photo professionnelle de tirelire/épargne** 📸

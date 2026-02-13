@@ -1,4 +1,4 @@
-"""Service de publication Facebook avec images."""
+"""Service de publication Facebook avec auto-engagement."""
 
 import logging
 import httpx
@@ -10,7 +10,7 @@ settings = get_settings()
 
 
 class FacebookService:
-    """Gestion des publications Facebook avec images."""
+    """Gestion des publications Facebook avec auto-engagement."""
     
     def __init__(self):
         self.access_token = settings.fb_access_token
@@ -23,17 +23,7 @@ class FacebookService:
         image_url: Optional[str] = None,
         timeout: float = 30.0
     ) -> str:
-        """
-        Publie un post sur Facebook avec ou sans image.
-        
-        Args:
-            content: Texte du post
-            image_url: URL de l'image (optionnel)
-            timeout: Timeout en secondes
-            
-        Returns:
-            ID du post publié
-        """
+        """Publie un post sur Facebook avec ou sans image."""
         if image_url:
             return await self._publish_with_photo(content, image_url, timeout)
         else:
@@ -81,7 +71,7 @@ class FacebookService:
         url = f"{self.base_url}/{self.page_id}/photos"
         
         payload = {
-            "url": image_url,  # URL de l'image
+            "url": image_url,
             "message": content,
             "access_token": self.access_token
         }
@@ -106,6 +96,92 @@ class FacebookService:
             # Fallback : publier sans photo
             logger.info("🔄 Tentative sans photo...")
             return await self._publish_text_only(content, timeout)
+    
+    async def like_post(self, post_id: str, timeout: float = 10.0) -> bool:
+        """
+        Like un post automatiquement.
+        
+        Args:
+            post_id: ID du post Facebook
+            timeout: Timeout en secondes
+            
+        Returns:
+            bool: True si succès, False sinon
+        """
+        url = f"{self.base_url}/{post_id}/likes"
+        
+        payload = {
+            "access_token": self.access_token
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    data=payload,
+                    timeout=timeout
+                )
+                response.raise_for_status()
+                
+                result = response.json()
+                
+                if result.get("success"):
+                    logger.info(f"👍 Post liké : {post_id}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Like échoué : {result}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"❌ Erreur like : {e}")
+            return False
+    
+    async def comment_post(
+        self,
+        post_id: str,
+        comment: str,
+        timeout: float = 10.0
+    ) -> str | None:
+        """
+        Commente un post automatiquement.
+        
+        Args:
+            post_id: ID du post Facebook
+            comment: Texte du commentaire
+            timeout: Timeout en secondes
+            
+        Returns:
+            str | None: ID du commentaire si succès, None sinon
+        """
+        url = f"{self.base_url}/{post_id}/comments"
+        
+        payload = {
+            "message": comment,
+            "access_token": self.access_token
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    data=payload,
+                    timeout=timeout
+                )
+                response.raise_for_status()
+                
+                result = response.json()
+                comment_id = result.get("id")
+                
+                if comment_id:
+                    logger.info(f"💬 Commentaire publié : {comment_id}")
+                    return comment_id
+                else:
+                    logger.warning(f"⚠️ Commentaire échoué : {result}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"❌ Erreur commentaire : {e}")
+            return None
     
     async def get_post_insights(self, post_id: str, timeout: float = 30.0) -> dict:
         """Récupère les statistiques d'un post."""

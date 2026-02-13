@@ -15,6 +15,7 @@ WEEKLY_SCHEDULE = {
 # Banque de sujets par catégorie
 TOPICS = {
     "finance": [
+        "le trading de crypto-monnaies : opportunités et risques",
         "Comment épargner 500€/mois automatiquement",
         "5 erreurs financières à éviter avant 30 ans",
         "Investir 100€/mois : guide pour débutants",

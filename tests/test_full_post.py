@@ -1,3 +1,6 @@
+import sys, os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import asyncio
 from app.database import SessionLocal
@@ -13,8 +16,8 @@ async def test_full_post():
         content_service = ContentService(db)
         fb_service = get_facebook_service()
         
-        category = "ai"
-        topic = "L'impact de l'IA sur l'éducation"
+        category = "finance"
+        topic = "Le trading de crypto-monnaies : opportunités et risques"
         
         print(f"📝 Génération post : {topic}\n")
         
