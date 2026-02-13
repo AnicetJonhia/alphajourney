@@ -15,7 +15,8 @@ class Post(Base):
     topic = Column(String(500), nullable=False)
     content = Column(Text, nullable=False)
     fb_post_id = Column(String(100), unique=True)
-    llm_used = Column(String(50))  # Quel LLM a généré
+    llm_used = Column(String(50))
+    image_url = Column(Text, nullable=True)  
     
     # Analytics
     likes = Column(Integer, default=0)
