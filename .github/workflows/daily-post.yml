@@ -1,0 +1,162 @@
+name: AlphaJourney - Publication quotidienne
+
+on:
+  schedule:
+    # Publication à 19h Madagascar (UTC+3) = 16h UTC
+    # Déclencher 5 minutes avant pour warm-up
+    - cron: '55 15 * * *'
+  
+  # Permet de tester manuellement
+  workflow_dispatch:
+    inputs:
+      force_publish:
+        description: 'Forcer la publication immédiate'
+        type: boolean
+        default: false
+
+env:
+  API_URL: https://alphajourney.onrender.com
+
+jobs:
+  publish-daily-post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: 🔥 Étape 1 - Warm-up du serveur
+        if: github.event.inputs.force_publish != 'true'
+        run: |
+          echo "🔥 Réveil du serveur Render..."
+          
+          for i in {1..3}; do
+            echo "Tentative $i/3"
+            response=$(curl -s -o /dev/null -w "%{http_code}" ${{ env.API_URL }}/health --max-time 30)
+            
+            if [ "$response" -eq 200 ]; then
+              echo "✅ Serveur réveillé"
+              break
+            else
+              echo "⏳ Attente 10s..."
+              sleep 10
+            fi
+          done
+      
+      - name: ⏰ Étape 2 - Synchronisation temporelle
+        if: github.event.inputs.force_publish != 'true'
+        run: |
+          echo "⏰ Calcul du temps d'attente précis..."
+          
+          # Heure cible : 19h Madagascar = 16h UTC
+          TARGET_HOUR=16
+          TARGET_MINUTE=0
+          
+          # Heure actuelle UTC
+          CURRENT_HOUR=$(date -u +%H | sed 's/^0*//')
+          CURRENT_MINUTE=$(date -u +%M | sed 's/^0*//')
+          CURRENT_SECOND=$(date -u +%S | sed 's/^0*//')
+          
+          # Traiter les valeurs vides
+          CURRENT_HOUR=${CURRENT_HOUR:-0}
+          CURRENT_MINUTE=${CURRENT_MINUTE:-0}
+          CURRENT_SECOND=${CURRENT_SECOND:-0}
+          
+          echo "🕐 Heure actuelle UTC : ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}"
+          echo "🎯 Heure cible UTC : ${TARGET_HOUR}:${TARGET_MINUTE}:00"
+          
+          # Calcul des secondes à attendre
+          CURRENT_TOTAL=$((CURRENT_HOUR * 3600 + CURRENT_MINUTE * 60 + CURRENT_SECOND))
+          TARGET_TOTAL=$((TARGET_HOUR * 3600 + TARGET_MINUTE * 60))
+          WAIT_SECONDS=$((TARGET_TOTAL - CURRENT_TOTAL))
+          
+          if [ $WAIT_SECONDS -lt 0 ]; then
+            echo "⚠️ Heure dépassée, publication immédiate"
+            WAIT_SECONDS=0
+          elif [ $WAIT_SECONDS -gt 300 ]; then
+            echo "⚠️ Attente limitée à 300s"
+            WAIT_SECONDS=300
+          fi
+          
+          echo "⏳ Attente de ${WAIT_SECONDS} secondes..."
+          sleep $WAIT_SECONDS
+          
+          echo "✅ C'est maintenant l'heure de publier !"
+      
+      - name: 📤 Étape 3 - Publication du post
+        id: publish
+        run: |
+          echo "📤 Déclenchement de la publication..."
+          echo "🕐 Timestamp : $(TZ='Indian/Antananarivo' date '+%Y-%m-%d %H:%M:%S %Z')"
+          
+          response=$(curl -X POST \
+            -w "\n%{http_code}" \
+            -s \
+            ${{ env.API_URL }}/publish-now \
+            -H "Content-Type: application/json" \
+            --max-time 180)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "📊 Code HTTP: $http_code"
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Publication réussie !"
+            echo ""
+            echo "$body" | jq -r '
+              "═══════════════════════════════════════",
+              "📊 RÉSULTAT DE LA PUBLICATION",
+              "═══════════════════════════════════════",
+              "📝 Post ID (DB) : \(.post_id // "N/A")",
+              "📝 Post ID (FB) : \(.fb_post_id // "N/A")",
+              "📂 Catégorie    : \(.category // "N/A")",
+              "🤖 LLM utilisé  : \(.llm_used // "N/A")",
+              "⏱️  Durée        : \(.duration_seconds // "N/A")s",
+              "═══════════════════════════════════════"
+            ' || echo "$body"
+            
+            exit 0
+          else
+            echo "❌ Échec de la publication"
+            echo "📝 Réponse : $body"
+            exit 1
+          fi
+      
+      - name: 📊 Étape 4 - Statistiques
+        if: success()
+        run: |
+          echo ""
+          echo "📈 Récupération des statistiques globales..."
+          
+          stats=$(curl -s ${{ env.API_URL }}/stats)
+          
+          if [ $? -eq 0 ]; then
+            echo "$stats" | jq -r '
+              "═══════════════════════════════════════",
+              "📊 STATISTIQUES ALPHAJOURNEY",
+              "═══════════════════════════════════════",
+              "📝 Total posts : \(.total_posts)",
+              "📈 Engagement  : \(.total_engagement // 0)",
+              "═══════════════════════════════════════"
+            ' || echo "Stats récupérées"
+          fi
+      
+      - name: ✅ Notification succès
+        if: success()
+        run: |
+          echo ""
+          echo "🎉 ════════════════════════════════════════"
+          echo "🎉 PUBLICATION ALPHAJOURNEY RÉUSSIE !"
+          echo "🎉 ════════════════════════════════════════"
+          echo "🕐 Timestamp : $(TZ='Indian/Antananarivo' date '+%H:%M:%S')"
+          echo "🔗 Vérifier sur Facebook"
+      
+      - name: ❌ Notification échec
+        if: failure()
+        run: |
+          echo ""
+          echo "❌ ════════════════════════════════════════"
+          echo "❌ ÉCHEC DE LA PUBLICATION"
+          echo "❌ ════════════════════════════════════════"
+          echo "🔗 Logs détaillés :"
+          echo "   https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "⏰ Timestamp : $(TZ='Indian/Antananarivo' date '+%Y-%m-%d %H:%M:%S')"

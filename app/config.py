@@ -27,11 +27,10 @@ class Settings(BaseSettings):
     auto_comment: bool = True       
     engagement_delay: int = 5       # ← Délai en secondes
     
-    # Scheduler
-    publication_hour: int = 19
-    publication_minute: int = 0
-    timezone: str = "Indian/Antananarivo" 
     
+     # Timezone (pour logs)
+    timezone: str = "Indian/Antananarivo" 
+
     # App
     environment: str = "production"
     

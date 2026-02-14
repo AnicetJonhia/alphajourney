@@ -1,9 +1,11 @@
+# ================================================
+# AlphaJourney - Configuration Render
+# Service Web uniquement (GitHub Actions gère le scheduling)
+# ================================================
+
 services:
-  # ================================================
-  # Service Web API
-  # ================================================
   - type: web
-    name: alphajourney-api
+    name: alphajourney
     env: python
     region: oregon
     plan: free
@@ -12,22 +14,33 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     
     envVars:
+      # Python
       - key: PYTHON_VERSION
         value: 3.12.2
+      
+      # Database (Neon PostgreSQL)
       - key: DATABASE_URL
         sync: false
+      
+      # Facebook Graph API
       - key: FB_ACCESS_TOKEN
         sync: false
       - key: FB_PAGE_ID
         sync: false
+      
+      # LLM APIs (au moins 1 requis)
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      
+      # Image APIs (optionnels mais recommandés)
       - key: UNSPLASH_ACCESS_KEY
         sync: false
       - key: PEXELS_API_KEY
         sync: false
+      
+      # Auto-engagement
       - key: AUTO_LIKE
         value: "true"
       - key: AUTO_COMMENT
@@ -35,63 +48,10 @@ services:
       - key: ENGAGEMENT_DELAY
         value: "5"
       
-      # Configuration dynamique (modifiable dans Dashboard)
-      - key: PUBLICATION_HOUR
-        sync: false  # ← Configurable dans Dashboard
-      - key: PUBLICATION_MINUTE
-        sync: false  # ← Configurable dans Dashboard
+      # Timezone (pour logs et /stats)
       - key: TIMEZONE
         value: "Indian/Antananarivo"
       
+      # Environnement
       - key: ENVIRONMENT
         value: production
-  
-  # ================================================
-  # Cron Job - Vérifie TOUTES LES HEURES
-  # Le script décide lui-même s'il doit publier
-  # ================================================
-  - type: cron
-    name: alphajourney-publisher
-    env: python
-    region: oregon
-    plan: free
-    
-    # Toutes les heures à XX:00 (vérifie PUBLICATION_HOUR dans le script)
-    schedule: "0 * * * *"
-    
-    buildCommand: pip install -r requirements.txt
-    startCommand: python scripts/publish.py
-    
-    # Mêmes variables (synchronisées)
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.2
-      - key: DATABASE_URL
-        sync: false
-      - key: FB_ACCESS_TOKEN
-        sync: false
-      - key: FB_PAGE_ID
-        sync: false
-      - key: GROQ_API_KEY
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: UNSPLASH_ACCESS_KEY
-        sync: false
-      - key: PEXELS_API_KEY
-        sync: false
-      - key: AUTO_LIKE
-        value: "true"
-      - key: AUTO_COMMENT
-        value: "true"
-      - key: ENGAGEMENT_DELAY
-        value: "5"
-      - key: PUBLICATION_HOUR
-        sync: false  
-      - key: PUBLICATION_MINUTE
-        sync: false
-      - key: TIMEZONE
-        value: "Indian/Antananarivo"
-      - key: ENVIRONMENT
-        value: production
-
