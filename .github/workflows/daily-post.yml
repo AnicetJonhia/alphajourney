@@ -2,11 +2,13 @@ name: AlphaJourney - Publication quotidienne
 
 on:
   schedule:
-    # Tous les jours à 16h UTC = 19h Madagascar (UTC+3)
+    # 16h UTC = 19h Madagascar
     - cron: '0 1 * * *'
-  
-  # Test manuel
   workflow_dispatch:
+
+concurrency:
+  group: alphajourney-daily
+  cancel-in-progress: false
 
 env:
   API_URL: https://alphajourney.onrender.com
@@ -15,22 +17,25 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    
+
     steps:
       - name: 🚀 Publication quotidienne
         run: |
           echo "📤 Publication AlphaJourney"
-          echo "🕐 $(date -u '+%Y-%m-%d %H:%M:%S UTC') ($(TZ='Indian/Antananarivo' date '+%H:%M %Z'))"
-          
-          # Appel avec timeout étendu pour cold start
+          echo "🕐 UTC : $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "🕐 Madagascar : $(TZ='Indian/Antananarivo' date '+%Y-%m-%d %H:%M:%S %Z')"
+
           response=$(curl -X POST \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-connrefused \
             -s -w "\n%{http_code}" \
             ${{ env.API_URL }}/publish-now \
             --max-time 180)
-          
+
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
-          
+
           if [ "$http_code" -eq 200 ]; then
             echo "✅ Publication réussie"
             echo "$body" | jq '.' 2>/dev/null || echo "$body"
