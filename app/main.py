@@ -1,18 +1,25 @@
-"""Point d'entrée de l'application FastAPI."""
+"""
+AlphaJourney - API FastAPI
+Point d'entrée simplifié (sans APScheduler)
+"""
 
 import logging
-import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from app.config import get_settings
-from app.database import init_db, get_db
-from app.scheduler import start_scheduler, stop_scheduler, daily_publication_job
-from app.models import Post
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Configuration logging
+from app.config import get_settings
+from app.database import init_db, get_db
+from app.models import Post
+
+# Importer la fonction de publication depuis le script
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from scripts.publish import publish_daily_post
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -26,70 +33,133 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Gestion du cycle de vie de l'application."""
     # Startup
-    logger.info("🚀 Démarrage de l'application")
+    logger.info("🚀 AlphaJourney API - Démarrage")
     init_db()
-    start_scheduler()
     
     yield
     
     # Shutdown
-    logger.info("⏹️ Arrêt de l'application")
-    stop_scheduler()
+    logger.info("⏹️ AlphaJourney API - Arrêt")
 
 
 app = FastAPI(
-    title="AutoPost Facebook",
-    description="Publication automatique sur Facebook avec LLM",
-    version="1.0.0",
+    title="AlphaJourney",
+    description="Publication automatique Facebook avec IA",
+    version="2.3.0",
     lifespan=lifespan
 )
 
 
 @app.get("/")
-def root():
+async def root():
     """Point d'entrée de l'API."""
     from app.data.schedules import WEEKLY_SCHEDULE
-    from datetime import datetime
     
     today_category = WEEKLY_SCHEDULE[datetime.now().weekday()]
     
     return {
+        "app": "AlphaJourney",
+        "version": "2.3.0",
         "status": "running",
+        "tagline": "💰 Finance | 🤖 IA | 🧠 Dev Personnel",
         "environment": settings.environment,
         "today_category": today_category,
-        "publication_time": f"{settings.publication_hour:02d}:{settings.publication_minute:02d}"
+        "publication_schedule": {
+            "hour": settings.publication_hour,
+            "minute": settings.publication_minute,
+            "timezone": settings.timezone
+        }
     }
 
 
 @app.get("/health")
-def health_check():
-    """Vérification de santé de l'application."""
-    return {"status": "healthy"}
+async def health_check():
+    """Vérification de santé."""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(ZoneInfo(settings.timezone)).isoformat()
+    }
+
+
+@app.get("/config/schedule")
+async def get_schedule_config():
+    """Retourne la configuration du schedule (pour le cron)."""
+    return {
+        "publication_hour": settings.publication_hour,
+        "publication_minute": settings.publication_minute,
+        "timezone": settings.timezone,
+        "next_run": _calculate_next_run()
+    }
+
+
+def _calculate_next_run() -> str:
+    """Calcule la prochaine exécution."""
+    from datetime import timedelta
+    
+    now = datetime.now(ZoneInfo(settings.timezone))
+    target = now.replace(
+        hour=settings.publication_hour,
+        minute=settings.publication_minute,
+        second=0,
+        microsecond=0
+    )
+    
+    if target < now:
+        target += timedelta(days=1)
+    
+    return target.isoformat()
 
 
 @app.post("/publish-now")
 async def publish_now():
-    """Déclenche une publication immédiate (pour tests)."""
+    """Publication manuelle (pour tests)."""
     try:
-        await asyncio.to_thread(daily_publication_job)
-        return {"status": "success", "message": "Publication déclenchée"}
+        start_time = datetime.now(ZoneInfo(settings.timezone))
+        logger.info("📤 Publication manuelle déclenchée")
+        
+        # Appeler la fonction de publication
+        result = await publish_daily_post()
+        
+        duration = (datetime.now(ZoneInfo(settings.timezone)) - start_time).total_seconds()
+        
+        if result["success"]:
+            return {
+                "status": "success",
+                "message": "Publication réussie",
+                "post_id": result.get("post_id"),
+                "fb_post_id": result.get("fb_post_id"),
+                "category": result.get("category"),
+                "llm_used": result.get("llm_used"),
+                "duration_seconds": round(duration, 2),
+                "timestamp": start_time.isoformat()
+            }
+        else:
+            return {
+                "status": "error",
+                "message": result.get("error"),
+                "timestamp": start_time.isoformat()
+            }
+            
     except Exception as e:
-        logger.error(f"Erreur publication manuelle : {e}")
-        return {"status": "error", "message": str(e)}
+        logger.error(f"❌ Erreur : {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": str(e),
+            "timestamp": datetime.now(ZoneInfo(settings.timezone)).isoformat()
+        }
 
 
 @app.get("/stats")
-def get_stats(db: Session = Depends(get_db)):
+async def get_stats(db: Session = Depends(get_db)):
     """Statistiques globales."""
+    from sqlalchemy import func
+    
     total_posts = db.query(Post).count()
     
-    # Top performers
     top_posts = db.query(Post).order_by(
         Post.engagement_score.desc()
     ).limit(5).all()
     
-    # Par catégorie
-    from sqlalchemy import func
     by_category = db.query(
         Post.category,
         func.count(Post.id).label('count'),
@@ -97,13 +167,15 @@ def get_stats(db: Session = Depends(get_db)):
     ).group_by(Post.category).all()
     
     return {
+        "app": "AlphaJourney",
         "total_posts": total_posts,
         "top_posts": [
             {
                 "id": p.id,
                 "topic": p.topic,
+                "category": p.category,
                 "engagement": p.engagement_score,
-                "likes": p.likes
+                "llm_used": p.llm_used
             }
             for p in top_posts
         ],
@@ -119,7 +191,7 @@ def get_stats(db: Session = Depends(get_db)):
 
 
 @app.get("/recent-posts")
-def get_recent_posts(limit: int = 10, db: Session = Depends(get_db)):
+async def get_recent_posts(limit: int = 10, db: Session = Depends(get_db)):
     """Liste des posts récents."""
     posts = db.query(Post).order_by(
         Post.created_at.desc()
@@ -132,39 +204,9 @@ def get_recent_posts(limit: int = 10, db: Session = Depends(get_db)):
                 "category": p.category,
                 "topic": p.topic,
                 "llm_used": p.llm_used,
-                "likes": p.likes,
+                "engagement_score": p.engagement_score,
                 "created_at": p.created_at.isoformat()
             }
             for p in posts
         ]
     }
-
-
-
-
-@app.get("/schedule")
-async def get_schedule():
-    """Retourne la configuration du schedule."""
-    return {
-        "publication_hour": settings.publication_hour,
-        "publication_minute": settings.publication_minute,
-        "timezone": "Indian/Antananarivo",  # UTC+3
-        "next_run": get_next_run_time()
-    }
-
-def get_next_run_time() -> str:
-    """Calcule la prochaine exécution."""
-    now = datetime.now(ZoneInfo("Indian/Antananarivo"))
-    target = now.replace(
-        hour=settings.publication_hour,
-        minute=settings.publication_minute,
-        second=0,
-        microsecond=0
-    )
-    
-    if target < now:
-        # Ajouter 1 jour si l'heure est déjà passée
-        from datetime import timedelta
-        target += timedelta(days=1)
-    
-    return target.isoformat()

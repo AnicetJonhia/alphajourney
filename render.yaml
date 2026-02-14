@@ -1,12 +1,6 @@
-# ================================================
-# AlphaJourney - Configuration Render
-# 2 services : Web API + Cron Job
-# ================================================
-
 services:
   # ================================================
-  # SERVICE 1 : API Web (peut dormir)
-  # Endpoints : /health, /stats, /publish-now
+  # Service Web API
   # ================================================
   - type: web
     name: alphajourney-api
@@ -18,33 +12,22 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     
     envVars:
-      # Python
       - key: PYTHON_VERSION
         value: 3.12.2
-      
-      # Database (Neon)
       - key: DATABASE_URL
         sync: false
-      
-      # Facebook
       - key: FB_ACCESS_TOKEN
         sync: false
       - key: FB_PAGE_ID
         sync: false
-      
-      # LLM APIs
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      
-      # Images APIs
       - key: UNSPLASH_ACCESS_KEY
         sync: false
       - key: PEXELS_API_KEY
         sync: false
-      
-      # Auto-engagement
       - key: AUTO_LIKE
         value: "true"
       - key: AUTO_COMMENT
@@ -52,21 +35,20 @@ services:
       - key: ENGAGEMENT_DELAY
         value: "5"
       
-      # Publication
+      # Configuration dynamique (modifiable dans Dashboard)
       - key: PUBLICATION_HOUR
-        value: "19"
+        sync: false  # ← Configurable dans Dashboard
       - key: PUBLICATION_MINUTE
-        value: "0"
+        sync: false  # ← Configurable dans Dashboard
       - key: TIMEZONE
         value: "Indian/Antananarivo"
       
-      # Environnement
       - key: ENVIRONMENT
         value: production
   
   # ================================================
-  # SERVICE 2 : Cron Job (publication quotidienne)
-  # S'exécute tous les jours à 16h UTC = 19h Madagascar
+  # Cron Job - Vérifie TOUTES LES HEURES
+  # Le script décide lui-même s'il doit publier
   # ================================================
   - type: cron
     name: alphajourney-publisher
@@ -74,55 +56,42 @@ services:
     region: oregon
     plan: free
     
-    # Schedule : 19h Madagascar (UTC+3) = 16h UTC
-    schedule: "0 16 * * *"
+    # Toutes les heures à XX:00 (vérifie PUBLICATION_HOUR dans le script)
+    schedule: "0 * * * *"
     
     buildCommand: pip install -r requirements.txt
     startCommand: python scripts/publish.py
     
+    # Mêmes variables (synchronisées)
     envVars:
-      # Python
       - key: PYTHON_VERSION
         value: 3.12.2
-      
-      # Database (partagée avec le service web)
       - key: DATABASE_URL
         sync: false
-      
-      # Facebook (partagées avec le service web)
       - key: FB_ACCESS_TOKEN
         sync: false
       - key: FB_PAGE_ID
         sync: false
-      
-      # LLM APIs (partagées avec le service web)
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      
-      # Images APIs (partagées avec le service web)
       - key: UNSPLASH_ACCESS_KEY
         sync: false
       - key: PEXELS_API_KEY
         sync: false
-      
-      # Auto-engagement (partagé)
       - key: AUTO_LIKE
         value: "true"
       - key: AUTO_COMMENT
         value: "true"
       - key: ENGAGEMENT_DELAY
         value: "5"
-      
-      # Publication (non utilisé par cron mais nécessaire)
       - key: PUBLICATION_HOUR
-        value: "19"
+        sync: false  
       - key: PUBLICATION_MINUTE
-        value: "0"
+        sync: false
       - key: TIMEZONE
         value: "Indian/Antananarivo"
-      
-      # Environnement
       - key: ENVIRONMENT
         value: production
+

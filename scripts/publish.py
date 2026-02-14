@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-AlphaJourney - Script de publication quotidienne
-Exécuté par Render Cron Job tous les jours à 19h (Madagascar)
+AlphaJourney - Script de publication avec vérification d'heure dynamique
+Vérifie PUBLICATION_HOUR avant de publier
 """
 
 import asyncio
@@ -11,7 +11,6 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Ajouter le répertoire parent au path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import SessionLocal, init_db
@@ -20,7 +19,6 @@ from app.services.facebook_service import get_facebook_service
 from app.data.comments import get_first_comment
 from app.config import get_settings
 
-# Configuration logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -30,88 +28,49 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-async def main():
-    """Fonction principale de publication."""
-    start_time = datetime.now(ZoneInfo(settings.timezone))
-    
-    logger.info("=" * 60)
-    logger.info("🚀 AlphaJourney - Publication quotidienne")
-    logger.info(f"🕐 {start_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    logger.info("=" * 60)
-    
-    # Initialiser la DB
-    init_db()
+async def publish_daily_post() -> dict:
+    """
+    Fonction de publication (retourne un dict pour /publish-now).
+    """
     db = SessionLocal()
     
     try:
         content_service = ContentService(db)
         fb_service = get_facebook_service()
         
-        # 1. Catégorie du jour
+        # 1. Catégorie
         category = content_service.get_today_category()
-        logger.info(f"📅 Catégorie : {category}")
         
-        # 2. Sujet non répété
+        # 2. Sujet
         topic = content_service.get_unused_topic(category)
-        logger.info(f"📝 Sujet : {topic}")
         
-        # 3. Générer contenu + hashtags
-        logger.info("🤖 Génération du contenu...")
+        # 3. Contenu + hashtags
         content, llm_used = await content_service.generate_post_content(
             category, topic, timeout=60.0
         )
-        logger.info(f"✅ Contenu généré avec {llm_used}")
-        logger.info(f"📏 Longueur : {len(content)} caractères")
         
-        # 4. Récupérer image
-        logger.info("📸 Recherche d'image...")
-        image_url = await content_service.get_post_image(
-            category, timeout=15.0
-        )
+        # 4. Image
+        image_url = await content_service.get_post_image(category, timeout=15.0)
         
-        if image_url:
-            logger.info(f"✅ Image trouvée : {image_url[:50]}...")
-        else:
-            logger.warning("⚠️ Pas d'image - publication en texte seul")
-        
-        # 5. Publier sur Facebook
-        logger.info("📤 Publication sur Facebook...")
+        # 5. Publication
         fb_post_id = await fb_service.publish(
             content=content,
             image_url=image_url,
             timeout=30.0
         )
-        logger.info(f"✅ Post publié : {fb_post_id}")
         
-        # 6. Auto-engagement (si activé)
+        # 6. Auto-engagement
         if settings.auto_like or settings.auto_comment:
-            logger.info(f"⏳ Attente {settings.engagement_delay}s avant engagement...")
             await asyncio.sleep(settings.engagement_delay)
             
-            # Like
             if settings.auto_like:
-                like_ok = await fb_service.like_post(fb_post_id, timeout=10.0)
-                if like_ok:
-                    logger.info("👍 Post liké automatiquement")
-                else:
-                    logger.warning("⚠️ Échec du like")
+                await fb_service.like_post(fb_post_id, timeout=10.0)
             
-            # Commentaire
             if settings.auto_comment:
                 comment_text = get_first_comment(category)
-                logger.info(f"💬 Commentaire : {comment_text[:50]}...")
-                
-                comment_id = await fb_service.comment_post(
-                    fb_post_id, comment_text, timeout=10.0
-                )
-                
-                if comment_id:
-                    logger.info(f"✅ Commentaire publié : {comment_id}")
-                else:
-                    logger.warning("⚠️ Échec du commentaire")
+                await fb_service.comment_post(fb_post_id, comment_text, timeout=10.0)
         
-        # 7. Sauvegarder en base
-        logger.info("💾 Sauvegarde en base de données...")
+        # 7. Sauvegarde
         post = content_service.save_post(
             category=category,
             topic=topic,
@@ -121,34 +80,84 @@ async def main():
             image_url=image_url
         )
         
-        # Résumé final
-        end_time = datetime.now(ZoneInfo(settings.timezone))
-        duration = (end_time - start_time).total_seconds()
-        
-        logger.info("=" * 60)
-        logger.info("🎉 PUBLICATION RÉUSSIE")
-        logger.info(f"📊 Post ID (DB) : {post.id}")
-        logger.info(f"📊 Post ID (FB) : {fb_post_id}")
-        logger.info(f"🤖 LLM utilisé : {llm_used}")
-        logger.info(f"📸 Image : {'Oui' if image_url else 'Non'}")
-        logger.info(f"👍 Like : {'Oui' if settings.auto_like else 'Non'}")
-        logger.info(f"💬 Commentaire : {'Oui' if settings.auto_comment else 'Non'}")
-        logger.info(f"⏱️ Durée totale : {duration:.2f}s")
-        logger.info(f"🕐 {end_time.strftime('%H:%M:%S')}")
-        logger.info("=" * 60)
-        
-        return 0
+        return {
+            "success": True,
+            "post_id": post.id,
+            "fb_post_id": fb_post_id,
+            "category": category,
+            "llm_used": llm_used
+        }
         
     except Exception as e:
-        logger.error("=" * 60)
-        logger.error("❌ ERREUR LORS DE LA PUBLICATION")
-        logger.error(f"Type : {type(e).__name__}")
-        logger.error(f"Message : {str(e)}")
-        logger.error("=" * 60, exc_info=True)
-        return 1
+        logger.error(f"❌ Erreur : {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e)
+        }
         
     finally:
         db.close()
+
+
+def should_publish_now() -> bool:
+    """
+    Vérifie si on doit publier maintenant selon PUBLICATION_HOUR.
+    """
+    now = datetime.now(ZoneInfo(settings.timezone))
+    current_hour = now.hour
+    current_minute = now.minute
+    
+    # Fenêtre de 5 minutes pour éviter de rater
+    target_hour = settings.publication_hour
+    target_minute = settings.publication_minute
+    
+    # Publier si on est dans la fenêtre (heure exacte ± 2 minutes)
+    if current_hour == target_hour:
+        minute_diff = abs(current_minute - target_minute)
+        if minute_diff <= 2:
+            return True
+    
+    return False
+
+
+async def main():
+    """Fonction principale avec vérification d'heure."""
+    
+    logger.info("=" * 60)
+    logger.info("🚀 AlphaJourney - Vérification publication")
+    
+    now = datetime.now(ZoneInfo(settings.timezone))
+    logger.info(f"🕐 {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    logger.info(f"⏰ Heure configurée : {settings.publication_hour:02d}:{settings.publication_minute:02d}")
+    logger.info("=" * 60)
+    
+    # Initialiser la DB
+    init_db()
+    
+    # Vérifier si on doit publier
+    if should_publish_now():
+        logger.info("✅ C'est l'heure de publier !")
+        
+        result = await publish_daily_post()
+        
+        if result["success"]:
+            logger.info("=" * 60)
+            logger.info("🎉 PUBLICATION RÉUSSIE")
+            logger.info(f"📊 Post ID (DB) : {result['post_id']}")
+            logger.info(f"📊 Post ID (FB) : {result['fb_post_id']}")
+            logger.info(f"🤖 LLM : {result['llm_used']}")
+            logger.info("=" * 60)
+            return 0
+        else:
+            logger.error("=" * 60)
+            logger.error("❌ ÉCHEC DE LA PUBLICATION")
+            logger.error(f"Erreur : {result['error']}")
+            logger.error("=" * 60)
+            return 1
+    else:
+        logger.info(f"⏳ Pas encore l'heure (heure actuelle : {now.hour:02d}:{now.minute:02d})")
+        logger.info("💤 Rien à faire")
+        return 0
 
 
 if __name__ == "__main__":
