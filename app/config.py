@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # Scheduler
     publication_hour: int = 19
     publication_minute: int = 0
+    timezone: str = "Indian/Antananarivo" 
     
     # App
     environment: str = "production"
