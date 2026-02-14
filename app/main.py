@@ -9,6 +9,8 @@ from app.config import get_settings
 from app.database import init_db, get_db
 from app.scheduler import start_scheduler, stop_scheduler, daily_publication_job
 from app.models import Post
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # Configuration logging
 logging.basicConfig(
@@ -136,3 +138,33 @@ def get_recent_posts(limit: int = 10, db: Session = Depends(get_db)):
             for p in posts
         ]
     }
+
+
+
+
+@app.get("/schedule")
+async def get_schedule():
+    """Retourne la configuration du schedule."""
+    return {
+        "publication_hour": settings.publication_hour,
+        "publication_minute": settings.publication_minute,
+        "timezone": "Indian/Antananarivo",  # UTC+3
+        "next_run": get_next_run_time()
+    }
+
+def get_next_run_time() -> str:
+    """Calcule la prochaine exécution."""
+    now = datetime.now(ZoneInfo("Indian/Antananarivo"))
+    target = now.replace(
+        hour=settings.publication_hour,
+        minute=settings.publication_minute,
+        second=0,
+        microsecond=0
+    )
+    
+    if target < now:
+        # Ajouter 1 jour si l'heure est déjà passée
+        from datetime import timedelta
+        target += timedelta(days=1)
+    
+    return target.isoformat()

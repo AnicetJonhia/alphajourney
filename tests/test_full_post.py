@@ -16,8 +16,8 @@ async def test_full_post():
         content_service = ContentService(db)
         fb_service = get_facebook_service()
         
-        category = "finance"
-        topic = "Les tendances financières à suivre en 2026"
+        category = "threads"
+        topic = "Tiktok vs Threads : qui gagne ?"
         
         print(f"📝 Génération post : {topic}\n")
         
