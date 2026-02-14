@@ -3,7 +3,7 @@ name: AlphaJourney - Publication quotidienne
 on:
   schedule:
     # Tous les jours à 16h UTC = 19h Madagascar (UTC+3)
-    - cron: '0 16 * * *'
+    - cron: '0 1 * * *'
   
   # Test manuel
   workflow_dispatch:
