@@ -3,7 +3,7 @@ name: AlphaJourney - Publication quotidienne
 on:
   schedule:
     # 16h UTC = 19h Madagascar
-    - cron: '0 7 * * *'
+    - cron: '0 16 * * *'
   workflow_dispatch:
 
 concurrency:
