@@ -12,7 +12,7 @@
 
 ## ✨ Fonctionnalités
 
-- ✅ **Publication automatique** à 14h chaque jour
+- ✅ **Publication automatique** à 19h chaque jour
 - ✅ **2 LLMs gratuits** avec fallback intelligent (Groq → Gemini)
 - ✅ **Hashtags intelligents** (5 par post, adaptés à la catégorie)
 - ✅ **Photos professionnelles** gratuites (Unsplash/Pexels)
@@ -269,7 +269,7 @@ DATABASE_URL=postgresql://...
 FB_ACCESS_TOKEN=EAAxxxxx
 FB_PAGE_ID=123456789
 GROQ_API_KEY=gsk_xxxxx
-GEMINI_API_KEY=AIzaxxxxx         # Optionnel
+GEMINI_API_KEY=AIzaxxxxx         
 UNSPLASH_ACCESS_KEY=xxxxx        # Optionnel
 PEXELS_API_KEY=xxxxx             # Optionnel
 
