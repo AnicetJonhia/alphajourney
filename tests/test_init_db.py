@@ -1,7 +1,7 @@
 import sys, os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from app.services.llm_service import get_llm_service
+
 import asyncio
 
 async def main():

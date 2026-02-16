@@ -65,7 +65,7 @@
 
 - **Backend**: FastAPI + Python 3.11 (Async)
 - **Database**: PostgreSQL (Neon.tech)
-- **Scheduler**: APScheduler Async
+- **Scheduler**: GitHub Actions (planification automatique)
 - **LLMs**: Groq (Llama 3.3), Gemini 2.0 (gratuits)
 - **Images**: Unsplash, Pexels (gratuits)
 - **Hosting**: Render.com (gratuit)
@@ -131,8 +131,6 @@ UNSPLASH_ACCESS_KEY=xxxxx     # 50 req/heure gratuit
 PEXELS_API_KEY=xxxxx          # 200 req/heure gratuit
 
 # Configuration
-PUBLICATION_HOUR=14
-PUBLICATION_MINUTE=0
 ENVIRONMENT=development
 ```
 
@@ -275,10 +273,51 @@ GEMINI_API_KEY=AIzaxxxxx         # Optionnel
 UNSPLASH_ACCESS_KEY=xxxxx        # Optionnel
 PEXELS_API_KEY=xxxxx             # Optionnel
 
-# 4. Déploiement automatique (2-3 minutes)
+# 4. Configurer GitHub Actions
+# Créer .github/workflows/publish.yml pour planifier les publications
+# Voir la section "Configuration GitHub Actions" ci-dessous
+
+# 5. Déploiement automatique (2-3 minutes)
 ```
 
 **URL de votre app :** `https://alphajourney.onrender.com`
+
+---
+
+---
+
+## ⚙️ Configuration GitHub Actions
+
+Créer un fichier `.github/workflows/publish.yml` :
+
+```yaml
+name: AlphaJourney Auto-Publish
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # Tous les jours à 14h UTC
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Trigger publication
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+            -d '{"clearCache": false}'
+```
+
+**Configuration requise :**
+1. Aller sur [Render Dashboard](https://dashboard.render.com)
+2. Récupérer votre `RENDER_API_KEY` et `RENDER_SERVICE_ID`
+3. Dans GitHub → Settings → Secrets → Ajouter ces secrets
 
 ---
 
@@ -334,11 +373,17 @@ curl -X POST https://alphajourney.onrender.com/publish-now
              │
 ┌────────────▼────────────────────┐
 │   Render.com (gratuit)          │
-│   FastAPI Async + APScheduler   │
-│   - Publication 14h/jour        │
+│   FastAPI Async                 │
+│   - Endpoint de publication     │
 │   - Fallback LLM + Images       │
 │   - 750h/mois (0.07% utilisé)   │
 └────────────┬────────────────────┘
+             │
+┌────────────▼────────────────────┐
+│  GitHub Actions (gratuit)       │
+│  - Déclenchement 14h/jour       │
+│  - Workflow automatisé          │
+└────────────────────────────────┘
              │
    ┌─────────┴─────────┬──────────┬──────────┬──────────┐
    │                   │          │          │          │
@@ -406,11 +451,20 @@ Photos contextuelles récupérées automatiquement :
 
 ### Serveur Render
 ```
-Publication : 1×/jour à 14h
+Publication : 1×/jour (déclenché par GitHub Actions)
 Durée execution : ~3 secondes (async)
 Mois : 90 secondes sur 750h disponibles
 
 ➡️ Utilisation : 0.003% du quota gratuit
+```
+
+### GitHub Actions
+```
+Workflows gratuits : 2 000 minutes/mois
+Publication 1×/jour = ~30 secondes/jour
+Mois : ~15 minutes sur 2 000 disponibles
+
+➡️ Utilisation : 0.75% du quota gratuit
 ```
 
 ### APIs gratuites
@@ -476,13 +530,19 @@ HASHTAGS = {
 }
 ```
 
-### Changer l'heure de publication
+### Configurer GitHub Actions
 
-Modifier `.env` ou variables Render :
-```env
-PUBLICATION_HOUR=18  # Publier à 18h au lieu de 14h
-PUBLICATION_MINUTE=30  # À 18h30
+Modifier `.github/workflows/publish.yml` pour changer l'heure de publication :
+```yaml
+on:
+  schedule:
+    - cron: '0 14 * * *'  # 14h UTC (à adapter à votre fuseau horaire)
+    # Exemple : '0 18 * * *' pour 18h, '30 18 * * *' pour 18h30
 ```
+
+⚠️ **Important** : L'heure est en UTC. Adapter selon votre fuseau horaire :
+- France (EST) : 14h UTC = 15h heure locale → utiliser `0 13 * * *`
+- Canada EST : 14h UTC = 9h heure locale → utiliser `0 19 * * *`
 
 ---
 
